@@ -828,6 +828,7 @@ vtn_handle_type(struct vtn_builder *b, SpvOp opcode,
       case SpvDimCube:     dim = GLSL_SAMPLER_DIM_CUBE;  break;
       case SpvDimRect:     dim = GLSL_SAMPLER_DIM_RECT;  break;
       case SpvDimBuffer:   dim = GLSL_SAMPLER_DIM_BUF;   break;
+      case SpvDimSubpassData: dim = GLSL_SAMPLER_DIM_BUF;   break;
       default:
          unreachable("Invalid SPIR-V Sampler dimension");
       }
@@ -853,6 +854,18 @@ vtn_handle_type(struct vtn_builder *b, SpvOp opcode,
       if (sampled == 1) {
          val->type->type = glsl_sampler_type(dim, is_shadow, is_array,
                                              glsl_get_base_type(sampled_type));
+        // Fragment Input Attachment Interface
+        // These variables must be declared with a type of OpTypeImage, a Dim operand of SubpassData,
+        // and a Sampled operand of 2
+        // * SPIR-V pg77
+        //     If Dim is SubpassData, Sampled must be 2, Image Format must be Unknown,
+        //     and the Execution Model must be
+        //     Fragment.
+      } else if ((SpvDim)w[3]==SpvDimSubpassData) {
+         assert(sampled==2);
+         assert(format==GL_NONE);
+         val->type->type = glsl_image_type(dim, false, GLSL_TYPE_UINT);
+         val->type->image_format = GL_RGBA8;
       } else if (sampled == 2) {
          assert(format);
          assert(!is_shadow);
@@ -2360,7 +2373,6 @@ vtn_handle_preamble_instruction(struct vtn_builder *b, SpvOp opcode,
       case SpvCapabilityImageCubeArray:
       case SpvCapabilitySampleRateShading:
       case SpvCapabilityInt8:
-      case SpvCapabilityInputAttachment:
       case SpvCapabilitySparseResidency:
       case SpvCapabilityMinLod:
       case SpvCapabilityImageMSArray:
@@ -2420,6 +2432,9 @@ vtn_handle_preamble_instruction(struct vtn_builder *b, SpvOp opcode,
 
    case SpvOpName:
       b->values[w[1]].name = vtn_string_literal(b, &w[2], count - 2, NULL);
+      break;
+
+   case SpvCapabilityInputAttachment:
       break;
 
    case SpvOpMemberName:

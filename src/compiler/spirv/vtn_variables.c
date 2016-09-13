@@ -902,6 +902,9 @@ var_decoration_cb(struct vtn_builder *b, struct vtn_value *val, int member,
    case SpvDecorationDescriptorSet:
       vtn_var->descriptor_set = dec->literals[0];
       return;
+   case SpvDecorationInputAttachmentIndex:
+      vtn_var->input_index = dec->literals[0];
+      return;
    default:
       break;
    }
@@ -1024,7 +1027,6 @@ var_decoration_cb(struct vtn_builder *b, struct vtn_value *val, int member,
          nir_var->data.pixel_center_integer = b->pixel_center_integer;
       break;
    }
-
    case SpvDecorationSpecId:
    case SpvDecorationRowMajor:
    case SpvDecorationColMajor:
@@ -1056,8 +1058,9 @@ var_decoration_cb(struct vtn_builder *b, struct vtn_value *val, int member,
 
    case SpvDecorationBinding:
    case SpvDecorationDescriptorSet:
-   case SpvDecorationNoContraction:
    case SpvDecorationInputAttachmentIndex:
+      break;
+   case SpvDecorationNoContraction:
       vtn_warn("Decoration not allowed for variable or structure member: %s",
                spirv_decoration_to_string(dec->decoration));
       break;
@@ -1159,7 +1162,9 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
             var->mode = vtn_variable_mode_ssbo;
             b->shader->info.num_ssbos++;
          } else if (glsl_type_is_image(without_array->type)) {
+            fprintf(stderr,"OKOKOK TEHEEEEEELLL\n");
             var->mode = vtn_variable_mode_image;
+
             nir_mode = nir_var_uniform;
             b->shader->info.num_images++;
          } else if (glsl_type_is_sampler(without_array->type)) {
@@ -1309,6 +1314,9 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
           */
          var->var->data.binding = var->binding;
          var->var->data.descriptor_set = var->descriptor_set;
+         fprintf(stderr, "%s: set descriptor_set to %x\n", var->var->name, var->descriptor_set);
+         fprintf(stderr, "%s: set binding to %x\n", var->var->name, var->binding);
+         fprintf(stderr, "%s: set input_index to %x\n", var->var->name, var->input_index);
 
          if (var->mode == vtn_variable_mode_image)
             var->var->data.image.format = without_array->image_format;
@@ -1318,6 +1326,7 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
          assert(var->members == NULL && var->var != NULL);
          nir_function_impl_add_variable(b->impl, var->var);
       } else if (var->var) {
+         fprintf(stderr, "%s: added to shader\n", var->var->name);
          nir_shader_add_variable(b->shader, var->var);
       } else if (var->members) {
          unsigned count = glsl_get_length(without_array->type);

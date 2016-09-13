@@ -836,9 +836,17 @@ anv_cmd_buffer_emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
          /* Nothing for us to do here */
          continue;
 
+      case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+         assert(stage == MESA_SHADER_FRAGMENT);
+         const struct anv_image_view *iview = fb->attachments[subpass->input_attachments[binding->index]];
+         surface_state = iview->input_surface_state;
+         assert(surface_state.alloc_size);
+         bo = iview->bo;
+         bo_offset = iview->offset;
+         break;
+
       case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
       case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-      case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
          surface_state = desc->image_view->sampler_surface_state;
          assert(surface_state.alloc_size);
          bo = desc->image_view->bo;

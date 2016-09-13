@@ -377,6 +377,7 @@ anv_image_view_init(struct anv_image_view *iview,
    assert(image->usage & (VK_IMAGE_USAGE_SAMPLED_BIT |
                           VK_IMAGE_USAGE_STORAGE_BIT |
                           VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                          VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT |
                           VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT));
 
    switch (image->type) {
@@ -481,6 +482,31 @@ anv_image_view_init(struct anv_image_view *iview,
          anv_state_clflush(iview->color_rt_surface_state);
    } else {
       iview->color_rt_surface_state.alloc_size = 0;
+   }
+
+   if (image->usage & usage_mask & VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT) {
+      iview->input_surface_state = alloc_surface_state(device, cmd_buffer);
+      if (isl_has_matching_typed_storage_image_format(&device->info,
+                                                      format.isl_format)) {
+         isl_view.format = isl_lower_storage_image_format(&device->info,
+                                                          isl_view.format);
+         isl_view.usage = ISL_SURF_USAGE_TEXTURE_BIT;
+         isl_surf_fill_state(&device->isl_dev,
+                             iview->input_surface_state.map,
+                             .surf = &surface->isl,
+                             .view = &isl_view,
+                             .mocs = device->default_mocs);
+      } else {
+         anv_fill_buffer_surface_state(device, iview->input_surface_state,
+                                       ISL_FORMAT_RAW,
+                                       iview->offset,
+                                       iview->bo->size - iview->offset, 1);
+      }
+
+      if (!device->info.has_llc)
+         anv_state_clflush(iview->input_surface_state);
+   } else {
+      iview->input_surface_state.alloc_size = 0;
    }
 
    /* NOTE: This one needs to go last since it may stomp isl_view.format */

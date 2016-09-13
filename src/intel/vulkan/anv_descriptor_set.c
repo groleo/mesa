@@ -631,7 +631,16 @@ void anv_UpdateDescriptorSets(
          break;
 
       case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
-         anv_finishme("input attachments not implemented");
+         for (uint32_t j = 0; j < write->descriptorCount; j++) {
+            ANV_FROM_HANDLE(anv_image_view, iview,
+                            write->pImageInfo[j].imageView);
+
+            desc[j] = (struct anv_descriptor) {
+               .type = write->descriptorType,
+               .image_view = iview,
+            };
+         }
+         anv_finishme("input attachments not implemented:  %x %x", write->descriptorType, write->dstBinding);
          break;
 
       case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
